@@ -90,7 +90,7 @@ async function redirect(req: NextApiRequest, res: NextApiResponse) {
       newUserAuth.credential = access_token;
       newUserAuth.user = savedUser;
 
-      const savedUserAuth = await userAuthRepo.save(newUserAuth);
+      await userAuthRepo.save(newUserAuth);
 
       session.userId = savedUser.id;
       session.nickname = savedUser.nickname;

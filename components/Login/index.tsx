@@ -29,7 +29,7 @@ const Login = (props: IProps) => {
       message.warning('请输入手机号');
       return;
     }
-
+    //  获取验证码
     request
       .post('/api/user/sendVerifyCode', {
         to: form?.phone,
@@ -63,6 +63,7 @@ const Login = (props: IProps) => {
 
   // client-id：Ov23liQ6HEYsuAZFNpPm
   // client-secret：633af7a7a000f879daa26c8d8cba19206a3e7934
+
   const handleOAuthGithub = () => {
     const githubClientid = 'Ov23liQ6HEYsuAZFNpPm';
     const redirectUri = 'http://localhost:3000/api/oauth/redirect';

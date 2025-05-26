@@ -8,6 +8,7 @@ import { Article, Tag } from 'db/entity';
 import { IArticle } from 'pages/api/index';
 import request from 'service/fetch';
 import styles from './index.module.scss';
+import React from 'react';
 
 const DynamicComponent = dynamic(() => import('components/ListItem'));
 
@@ -75,11 +76,10 @@ const Home = (props: IProps) => {
       </div>
       <div className="content-layout">
         {showAricles?.map((article) => (
-          <>
-            {/* <ListItem article={article} /> */}
+          <React.Fragment key={article.id}>
             <DynamicComponent article={article} />
             <Divider />
-          </>
+          </React.Fragment>
         ))}
       </div>
     </div>

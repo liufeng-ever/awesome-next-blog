@@ -17,6 +17,10 @@ export type IArticle = {
   update_time: Date,
   user: IUserInfo,
   comments: IComment[],
+  tags: Array<{
+    id: number,
+    title: string,
+  }>,
 };
 
 export type ISession = IronSession & Record<string, any>;

@@ -23,7 +23,7 @@ export async function getServerSideProps({ params }: any) {
     where: {
       id: articleId,
     },
-    relations: ['user', 'comments', 'comments.user'],
+    relations: ['user', 'comments', 'comments.user', 'tags'],
   });
 
   if (article) {
@@ -31,10 +31,16 @@ export async function getServerSideProps({ params }: any) {
     article.views = article?.views + 1;
     await articleRepo.save(article);
   }
-
+  console.log('article',article)
   return {
     props: {
       article: JSON.parse(JSON.stringify(article)),
+      pathname: '/article/[id]',
+      query: {
+        title: article?.title,
+        description: article?.content?.slice(0, 200),
+        keywords: article?.tags?.map(tag => tag.title).join(','),
+      },
     },
   };
 }

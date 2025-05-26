@@ -14,14 +14,8 @@ import { User, Article } from 'db/entity';
 import styles from './index.module.scss';
 
 export async function getStaticPaths() {
-  // user/[id]
-  const db = await prepareConnection();
-  const users = await db.getRepository(User).find();
-  const userIds = users?.map((user) => ({ params: { id: String(user?.id) } }));
-
-  // [{params: 1}, {params: 2}, {params: 3}]
   return {
-    paths: userIds,
+    paths: [],
     fallback: 'blocking',
   };
 }

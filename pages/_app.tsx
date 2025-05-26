@@ -2,6 +2,7 @@ import '../styles/globals.css';
 import { StoreProvider } from 'store/index';
 import ErrorBoundary from 'components/ErrorBoundary';
 import Layout from 'components/layout';
+import SEO from 'components/SEO';
 import { NextPage } from 'next';
 
 interface IProps {
@@ -47,10 +48,16 @@ export function reportWebVitals(mertic: any) {
 function MyApp({ initialValue, Component, pageProps }: IProps) {
   const renderLayout = () => {
     if ((Component as any).layout === null) {
-      return <Component {...pageProps} />;
+      return (
+        <>
+          <SEO {...pageProps} />
+          <Component {...pageProps} />
+        </>
+      );
     } else {
       return (
         <Layout>
+          <SEO {...pageProps} />
           <Component {...pageProps} />
         </Layout>
       );

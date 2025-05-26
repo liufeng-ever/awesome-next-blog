@@ -43,6 +43,7 @@ const Navbar: NextPage = () => {
         store.user.setUserInfo({});
       }
     });
+    // window.location.reload();
   };
 
   // 登录展示

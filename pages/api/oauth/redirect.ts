@@ -3,117 +3,111 @@ import { withIronSessionApiRoute } from 'iron-session/next';
 import { Cookie } from 'next-cookie';
 import { ironOptions } from 'config/index';
 import { ISession } from 'pages/api/index';
-import request from 'service/fetch';
 import { setCookie } from 'utils/index';
 import { prepareConnection } from 'db/index';
 import { User, UserAuth } from 'db/entity/index';
+import axios from 'axios';
 
 export default withIronSessionApiRoute(redirect, ironOptions);
 
- // client-id：Ov23liQ6HEYsuAZFNpPm
-  // client-secret：633af7a7a000f879daa26c8d8cba19206a3e7934
+// client-id：Ov23liQ6HEYsuAZFNpPm
+// client-secret：633af7a7a000f879daa26c8d8cba19206a3e7934
 
 async function redirect(req: NextApiRequest, res: NextApiResponse) {
-  const session: ISession = req.session;
-  // http://localhost:3000/api/oauth/redirect?code=xxxxx
   const { code } = req?.query || {};
-  console.log(111111);
-  console.log(code);
-  const githubClientID = 'Ov23liQ6HEYsuAZFNpPm';
-  const githubSecrect = '633af7a7a000f879daa26c8d8cba19206a3e7934';
-  const url = `https://github.com/login/oauth/access_token?client_id=${githubClientID}&client_secret=${githubSecrect}&code=${code}`;
+  const session: ISession = req.session;
 
-  const result = await request.post(
-    url,
-    {},
-    {
-      headers: {
-        accept: 'application/json',
+  if (!code) {
+    return res.status(400).json({ error: 'No code provided' });
+  }
+
+  try {
+    // 1. 获取 access token
+    const tokenResponse = await axios({
+      method: 'post',
+      url: 'https://github.com/login/oauth/access_token',
+      data: {
+        client_id: 'Ov23liQ6HEYsuAZFNpPm',
+        client_secret: '633af7a7a000f879daa26c8d8cba19206a3e7934',
+        code,
       },
-    }
-  );
-
-  console.log(22222)
-  console.log(result)
-
-  const { access_token } = result as any;
-
-  console.log(33333)
-  console.log(access_token)
-
-  const githubUserInfo = await request.get('https://api.github.com/user', {
-    headers: {
-      accept: 'application/json',
-      Authorization: `token ${access_token}`
-    }
-  })
-  
-  console.log(44444)
-  console.log(githubUserInfo)
-
-  const cookies = Cookie.fromApiRoute(req, res);
-  const db = await prepareConnection();
-  const userAuth = await db.getRepository(UserAuth).findOne({
-    identity_type: 'github',
-    identifier: githubClientID
-  }, {
-    relations: ['user']
-  });
-
-  console.log(55555)
-  console.log(userAuth)
-
-  if (userAuth) {
-    // 之前登录过的用户，直接从 user 里面获取用户信息，并且更新 credential
-    const user = userAuth.user;
-    const { id, nickname, avatar } = user;
-
-    console.log(6666666)
-    console.log(user)
-
-    userAuth.credential = access_token;
-
-    session.userId = id;
-    session.nickname = nickname;
-    session.avatar = avatar;
-
-    await session.save();
-
-    setCookie(cookies, { id, nickname, avatar });
-
-    res.writeHead(302, {
-      Location: '/'
+      headers: {
+        Accept: 'application/json',
+      },
     });
-  } else {
-    // 创建一个新用户，包括 user 和 user_auth
-    const { login = '', avatar_url = '' } = githubUserInfo as any;
-    const user = new User();
-    user.nickname = login;
-    user.avatar = avatar_url;
 
-    const userAuth = new UserAuth();
-    userAuth.identity_type = 'github';
-    userAuth.identifier = githubClientID;
-    userAuth.credential = access_token;
-    userAuth.user = user;
+    const { access_token } = tokenResponse.data;
 
+    // 2. 获取用户信息
+    const userResponse = await axios({
+      method: 'get',
+      url: 'https://api.github.com/user',
+      headers: {
+        Authorization: `token ${access_token}`,
+        Accept: 'application/json',
+      },
+    });
+
+    const { id, login, avatar_url } = userResponse.data;
+
+    // 3. 处理用户登录/注册
+    const db = await prepareConnection();
     const userAuthRepo = db.getRepository(UserAuth);
-    const resUserAuth = await userAuthRepo.save(userAuth);
 
-    console.log(77777)
-    console.log(resUserAuth)
+    let userAuth = await userAuthRepo.findOne({
+      where: {
+        identity_type: 'github',
+        identifier: id.toString(),
+      },
+      relations: ['user'],
+    });
 
-    const { id, nickname, avatar } = resUserAuth?.user || {};
-    session.userId = id;
-    session.nickname = nickname;
-    session.avatar = avatar;
+    if (userAuth) {
+      // 更新已存在用户
+      userAuth.credential = access_token;
+      await userAuthRepo.save(userAuth);
+
+      const user = userAuth.user;
+      session.userId = user.id;
+      session.nickname = user.nickname;
+      session.avatar = user.avatar;
+    } else {
+      // 创建新用户
+      const user = new User();
+      user.nickname = login;
+      user.avatar = avatar_url;
+      user.job = '';
+      user.introduce = '';
+
+      // 先保存用户
+      const userRepo = db.getRepository(User);
+      const savedUser = await userRepo.save(user);
+
+      // 再创建用户认证
+      const newUserAuth = new UserAuth();
+      newUserAuth.identity_type = 'github';
+      newUserAuth.identifier = id.toString();
+      newUserAuth.credential = access_token;
+      newUserAuth.user = savedUser;
+
+      const savedUserAuth = await userAuthRepo.save(newUserAuth);
+
+      session.userId = savedUser.id;
+      session.nickname = savedUser.nickname;
+      session.avatar = savedUser.avatar;
+    }
 
     await session.save();
-
-    setCookie(cookies, { id, nickname, avatar });
-
-    res.writeHead(302, {
-      Location: '/'
+    setCookie(Cookie.fromApiRoute(req, res), {
+      id: session.userId,
+      nickname: session.nickname,
+      avatar: session.avatar,
     });
+
+    res.writeHead(302, { Location: '/' });
+    res.end();
+  } catch (error) {
+    console.error('GitHub OAuth Error:', error);
+    res.status(500).json({ error: 'Failed to process GitHub login' });
   }
 }

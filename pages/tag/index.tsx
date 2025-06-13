@@ -37,6 +37,8 @@ const Tag = () => {
         setFollowTags(followTags);
         setAllTags(allTags);
       }
+    }).catch((err: any) => {
+      console.log(err);
     })
   }, [needRefresh]);
 
